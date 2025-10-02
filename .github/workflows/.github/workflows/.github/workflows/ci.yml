@@ -1,73 +1,33 @@
-name: CI
+name: Java CI with Gradle
 
 on:
   push:
-    branches: [ "**" ]
+    branches:
+      - '**'          # запуск на любой ветке
   pull_request:
-    branches: [ "**" ]
+    branches:
+      - '**'          # запуск на любой PR
 
 jobs:
-  build-test:
-    name: Build & Test (Maven)
+  build:
     runs-on: ubuntu-latest
+
     strategy:
-      fail-fast: false
       matrix:
-        java: [ '17', '21' ]   # если нужна матрица JDK
+        java-version: [8, 11]   # тестируем на JDK 8 и 11
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      - name: Set up JDK
-      uses: actions/setup-java@v4
+      - name: Set up JDK ${{ matrix.java-version }}
+        uses: actions/setup-java@v3
         with:
-          distribution: temurin
-          java-version: ${{ matrix.java }}
-          cache: maven
+          java-version: ${{ matrix.java-version }}
+          distribution: temurin   # официальный дистрибутив Adoptium/Temurin
 
-      - name: Build & test
-        run: mvn -B -ntp -DskipITs=true verify
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
 
-      - name: Upload unit test reports
-        if: success() || failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: surefire-reports-jdk${{ matrix.java }}
-          path: |
-            **/target/surefire-reports/*.xml
-            **/target/surefire-reports/*.txt
-
-      - name: Upload JARs
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-jars-jdk${{ matrix.java }}
-          path: "**/target/*.jar"
-
-  # Отдельная джоба для UI-тестов Selenium (опционально)
-  selenium:
-    name: UI tests (Selenium + Chrome)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-          cache: maven
-
-      - name: Setup Chrome
-        uses: browser-actions/setup-chrome@v1
-
-      - name: Setup Chromedriver
-        uses: nanasess/setup-chromedriver@v2
-
-      - name: Run Selenium tests headless
-        env:
-          CHROME_BIN: google-chrome
-        run: |
-          # Если нужно xvfb:
-          sudo apt-get update && sudo apt-get install -y xvfb
-          Xvfb :99 -screen 0 1920x1080x24 > /dev/null 2>&1 &
-          export DISPLAY=:99
-          mvn -B -ntp -Pui-tests -Dheadless=true -Dwebdriver.chrome.driver=$(which chromedriver) test -Dtest=*UITest
+      - name: Build and test with Gradle
+        run: ./gradlew clean test
