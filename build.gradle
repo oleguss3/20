@@ -16,3 +16,9 @@ dependencies {
 test {
     useJUnit()
 }
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(8)
+    }
+}
